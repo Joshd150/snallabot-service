@@ -760,53 +760,53 @@ function getDevTraitName(devTrait: DevTrait): string {
 
 enum SnallabotTeamEmojis {
   // AFC East
-  NE = "<:snallabot_ne:1364103345752641587>",
-  NYJ = "<:snallabot_nyj:1364103346985635900>",
-  BUF = "<:snallabot_buf:1364103347862372434>",
-  MIA = "<:snallabot_mia:1364103349091176468>",
+  NE = "<:vfl_patriots:1394843623903854714>",
+  NYJ = "<:vfl_jets:1394843445423640596>",
+  BUF = "<:vfl_bills:1394843348216315974>",
+  MIA = "<:vfl_dolphins:1394843661501464626>",
 
   // AFC North
-  CIN = "<:snallabot_cin:1364103477399130144>",
-  PIT = "<:snallabot_pit:1364103356393455667>",
-  BAL = "<:snallabot_bal:1364105429591785543>",
-  CLE = "<:snallabot_cle:1364103360545820742>",
+  CIN = "<:vfl_bengals:1394843868632977478>",
+  PIT = "<:vfl_steelers:1394843678417227908>",
+  BAL = "<:vfl_ravens:1394843609525653554>",
+  CLE = "<:vfl_browns:1394843382773190656>",
 
   // AFC South
-  TEN = "<:snallabot_ten:1364103353201856562>",
-  IND = "<:snallabot_ind:1364103350194278484>",
-  JAX = "<:snallabot_jax:1364103352115400774>",
-  HOU = "<:snallabot_hou:1364103351184396318>",
+  TEN = "<:vfl_titans:1394843814245564456>",
+  IND = "<:vfl_colts:1394843909250613259>",
+  JAX = "<:vfl_jaguars:1394842912944164864>",
+  HOU = "<:vfl_texans:1394843411374276699>",
 
   // AFC West
-  KC = "<:snallabot_kc:1364105564711288852>",
-  LV = "<:snallabot_lv:1364105565885825114>",
-  DEN = "<:snallabot_den:1364103366765973615>",
-  LAC = "<:snallabot_lac:1364103363297411142>",
+  KC = "<:vfl_chiefs:1394843845937725542>",
+  LV = "<:vfl_raiders:1394842874608353441>",
+  DEN = "<:vfl_broncos:1394842894879293502>",
+  LAC = "<:vfl_chargers:1394843744867450962>",
 
   // NFC East
-  DAL = "<:snallabot_dal:1364105752087887902>",
-  NYG = "<:snallabot_nyg:1364103377411244124>",
-  PHI = "<:snallabot_phi:1364105809134354472>",
-  WAS = "<:snallabot_was:1364103380728811572>",
+  DAL = "<:vfl_cowboys:1394843969459982556>",
+  NYG = "<:vfl_giants:1394843468207231017>",
+  PHI = "<:vfl_eagles:1394843694380748850>",
+  WAS = "<:vfl_commanders:1394842799530053653>",
 
   // NFC North
-  MIN = "<:snallabot_min:1364106069160493066>",
-  CHI = "<:snallabot_chi:1364103373825249331>",
-  DET = "<:snallabot_det:1364106151796670526>",
-  GB = "<:snallabot_gb:1364103370289184839>",
+  MIN = "<:vfl_vikings:1394843395696099328>",
+  CHI = "<:vfl_bears:1394843365635522622>",
+  DET = "<:vfl_lions:1394843998627303554>",
+  GB = "<:vfl_packers:1394843776928973001>",
 
   // NFC South
-  NO = "<:snallabot_no:1364103387758592051>",
-  CAR = "<:snallabot_car:1364106419804045353>",
-  TB = "<:snallabot_tb:1364103384222797904>",
-  ATL = "<:snallabot_atl:1364106360383471737>",
+  NO = "<:vfl_saints:1394843949184716892>",
+  CAR = "<:vfl_panthers:1394842846413979718>",
+  TB = "<:vfl_bucca:1394843639498276975>",
+  ATL = "<:vfl_falcons:1394842934939095051>",
 
   // NFC West
-  ARI = "<:snallabot_ari:1364106640315646013>",
-  LAR = "<:snallabot_lar:1364103394800701450>",
-  SEA = "<:snallabot_sea:1364103391260840018>",
-  SF = "<:snallabot_sf:1364106686083895336>",
-  NFL = "<:snallabot_nfl:1364108784229810257>"
+  ARI = "<:4178cardinals:1394843498196369549>",
+  LAR = "<:vfl_rams:1394843931535085749>",
+  SEA = "<:vfl_seahawks:1394843758729760768>",
+  SF = "<:vfl_49ers:1394843590051627018>",
+  NFL = "<:vfl_nfl:1394855879727120514>"
 }
 
 function getTeamEmoji(teamAbbr: string): SnallabotTeamEmojis {
@@ -814,10 +814,10 @@ function getTeamEmoji(teamAbbr: string): SnallabotTeamEmojis {
 }
 
 enum SnallabotDevEmojis {
-  NORMAL = "<:snallabot_normal_dev:1363761484131209226>",
-  STAR = "<:snallabot_star_dev:1363761179805220884>",
-  SUPERSTAR = "<:snallabot_superstar_dev:1363761181525020703>",
-  XFACTOR = "<:snallabot_xfactor_dev:1363761178622562484>",
+  NORMAL = "<:vfl_normal_dev:1394847348756316170>",
+  STAR = "<:vfl_stardev:1394845123694690416>",
+  SUPERSTAR = "<:vfl_stardevgold:1394845223955464323>",
+  XFACTOR = "<:vfl_XFactor:1394845102718980146>",
 }
 const rules = new Intl.PluralRules("en-US", { type: "ordinal" })
 const suffixes = new Map([
@@ -881,8 +881,8 @@ ${getPositionalTraits(player)}${abilities}
 
 function formatYesNoTrait(trait: YesNoTrait) {
   switch (trait) {
-    case YesNoTrait.YES: return "<:snallabot_yes:1368090206867030056>"
-    case YesNoTrait.NO: return "<:snallabot_nope:1368090205525115030>"
+    case YesNoTrait.YES: return "<:vfl_yes:1394853967753777172>"
+    case YesNoTrait.NO: return "<:vfl_nope:1394853984916734002>"
     default: return "Unknown"
   }
 }
@@ -1170,9 +1170,9 @@ function formatScore(game: MaddenGame) {
 }
 
 enum SnallabotGameResult {
-  WIN = "<:snallabot_win:1368708001548079304>",
-  LOSS = "<:snallabot_loss:1368726069963653171>",
-  TIE = "<:snallabot_tie:1368713402016337950>"
+  WIN = "<:vfl_Win:1394856622068859031>",
+  LOSS = "<:vfl_Loss:1394856637445050368>",
+  TIE = "<:vfl_tie:1394856654503153777>"
 }
 
 function formatGameEmoji(game: MaddenGame, playerTeam: number) {
