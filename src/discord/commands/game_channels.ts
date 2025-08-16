@@ -17,7 +17,7 @@ async function react(client: DiscordClient, channel: ChannelId, message: Message
 }
 
 function notifierMessage(users: string, waitPing: number, role: RoleId): string {
-  return `${users}\nTime to schedule your game! Once your game is scheduled, hit the ⏰. Otherwise, You will be notified again every ${waitPing} hours.\nWhen you're done playing, let me know with 🏆 and I will clean up the channel.\nNeed to sim this game? React with ⏭ AND the home/away request a force win from <@&${role.id}>. Choose both home and away to fair sim! <@&${role.id}> hit the ⏭ to confirm it!`
+  return `${users}\n\n**Game Controls:**\n✅ – Mark your game complete\n⏰ – Snooze automatic reminders if your game is scheduled\n\nYou will be notified again every ${waitPing} hours if not scheduled.\nNeed to sim this game? Contact <@&${role.id}> for force win requests.`
 }
 
 function createSimMessage(sim: ConfirmedSim): string {
@@ -170,11 +170,8 @@ async function createGameChannels(client: DiscordClient, db: Firestore, token: s
     })
     const finalGameChannels: GameChannel[] = await Promise.all(gameChannelsWithMessage.map(async gameChannel => {
       const { channel: channel, message: message } = gameChannel
-      await react(client, channel, message, SnallabotReactions.SCHEDULE)
-      await react(client, channel, message, SnallabotReactions.GG)
-      await react(client, channel, message, SnallabotReactions.HOME)
-      await react(client, channel, message, SnallabotReactions.AWAY)
-      await react(client, channel, message, SnallabotReactions.SIM)
+      await react(client, channel, message, SnallabotReactions.SCHEDULE) // ⏰
+      await react(client, channel, message, "%E2%9C%85") // ✅ (green check)
       const { game, ...rest } = gameChannel
       const createdTime = new Date().getTime()
       return { ...rest, state: GameChannelState.CREATED, notifiedTime: createdTime, channel: channel, message: message }

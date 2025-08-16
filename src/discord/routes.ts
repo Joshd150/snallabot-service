@@ -189,9 +189,13 @@ discordClient.on("guildMemberRemove", async (user, guild) => {
         delete assignments[teamId].discord_user
       }
     }))
-    const message = await fetchTeamsMessage(leagueSettings)
+    
     try {
-      await prodClient.editMessage(leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, message, [])
+      if (leagueSettings.commands.madden_league?.league_id) {
+        const teams = await MaddenClient.getLatestTeams(leagueSettings.commands.madden_league.league_id)
+        const { updateTeamsMessage } = await import("./commands/teams")
+        await updateTeamsMessage(prodClient, leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, teams.getLatestTeams(), assignments)
+      }
     } catch (e) {
     }
   }
@@ -217,19 +221,23 @@ discordClient.on("guildMemberUpdate", async (member, old) => {
         }
       }
     }))
-    const message = await fetchTeamsMessage(leagueSettings)
+    
     try {
-      await prodClient.editMessage(leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, message, [])
+      if (leagueSettings.commands.madden_league?.league_id) {
+        const teams = await MaddenClient.getLatestTeams(leagueSettings.commands.madden_league.league_id)
+        const { updateTeamsMessage } = await import("./commands/teams")
+        await updateTeamsMessage(prodClient, leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, teams.getLatestTeams(), assignments)
+      }
     } catch (e) {
     }
   }
 });
 
-const validReactions = ["🏆", "⏭️"];
+const validReactions = ["✅", "⏰"];
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
-}
+const validReactions = ["✅", "⏰"];
 
 
 discordClient.on("messageReactionAdd", async (msg, reactor, reaction) => {

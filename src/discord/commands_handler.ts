@@ -58,7 +58,8 @@ const AutocompleteCommands: AutocompleteHandlers = {
 }
 
 const MessageComponents: MessageComponentHandlers = {
-  "player_card": playerHandler
+  "player_card": playerHandler,
+  "teams:waitlist:toggle": teamsHandler
 }
 
 export async function handleCommand(command: Command, ctx: ParameterizedContext, discordClient: DiscordClient, db: Firestore) {
@@ -142,6 +143,11 @@ export async function handleMessageComponent(interaction: MessageComponentIntera
         ctx.body = body
       } else if (parsedCustomId.t) {
         const body = await broadcastsHandler.handleInteraction(interaction, client)
+        ctx.status = 200
+        ctx.set("Content-Type", "application/json")
+        ctx.body = body
+      } else if (parsedCustomId === "teams:waitlist:toggle" || custom_id.startsWith("teams:")) {
+        const body = await teamsHandler.messageComponentHandler.handleInteraction(interaction, client)
         ctx.status = 200
         ctx.set("Content-Type", "application/json")
         ctx.body = body

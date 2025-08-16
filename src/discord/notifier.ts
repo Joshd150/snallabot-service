@@ -114,10 +114,8 @@ function createNotifier(client: DiscordClient, guildId: string, settings: League
       }
       const ggUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.GG)
       const scheduledUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.SCHEDULE)
-      const homeUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.HOME)
-      const awayUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.AWAY)
-      const fwUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.SIM)
-      if (ggUsers.length > 0) {
+      const checkUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.CHECK)
+      if (ggUsers.length > 0 || checkUsers.length > 0) {
         try {
           const exporter = await exporterForLeague(Number(leagueId), ExportContext.AUTO)
           await exporter.exportCurrentWeek()
@@ -126,35 +124,28 @@ function createNotifier(client: DiscordClient, guildId: string, settings: League
         try {
           const game = await MaddenDB.getGameForSchedule(leagueId, currentState.scheduleId, week, season)
           if (game.status !== GameResult.NOT_PLAYED) {
-            await this.deleteGameChannel(currentState, season, week, ggUsers)
+            await this.deleteGameChannel(currentState, season, week, checkUsers.length > 0 ? checkUsers : ggUsers)
           }
         } catch (e) {
         }
       }
-      if (fwUsers.length > 0) {
-        const users = await client.getUsers(guildId)
-        const adminRole = settings.commands.game_channel?.admin.id || ""
-        const admins = users.map((u) => ({ id: u.user.id, roles: u.roles })).filter(u => u.roles.includes(adminRole)).map(u => u.id)
-        const confirmedUsers = fwUsers.filter(u => admins.includes(u.id))
-        if (confirmedUsers.length >= 1) {
-          try {
-            const result = decideResult(homeUsers, awayUsers)
-            const requestedUsers = fwUsers.filter(u => !admins.includes(u.id))
-            await forceWin(result, requestedUsers, confirmedUsers, currentState, season, week)
-            await this.deleteGameChannel(currentState, season, week, requestedUsers.concat(confirmedUsers))
-          } catch (e) {
-
-          }
-        } else if (currentState.state !== GameChannelState.FORCE_WIN_REQUESTED) {
-          const adminRole = settings.commands.game_channel?.admin.id || ""
-          const message = `Sim requested <@&${adminRole}> by ${joinUsers(fwUsers)}`
-          await LeagueSettingsDB.updateGameChannelState(guildId, week, season, channelId, GameChannelState.FORCE_WIN_REQUESTED)
-          try {
-            await client.createMessage(channelId, message, ["roles"])
-          } catch (e) {
-          }
+      if (checkUsers.length > 0) {
+        try {
+          const exporter = await exporterForLeague(Number(leagueId), ExportContext.AUTO)
+          await exporter.exportCurrentWeek()
+        } catch (e) {
         }
-      } else if (scheduledUsers.length === 0 && currentState.state !== GameChannelState.FORCE_WIN_REQUESTED) {
+        try {
+          const game = await MaddenDB.getGameForSchedule(leagueId, currentState.scheduleId, week, season)
+          if (game.status !== GameResult.NOT_PLAYED) {
+            await this.deleteGameChannel(currentState, season, week, checkUsers)
+          } else {
+            // Mark as complete and notify commissioners
+            await client.createMessage(currentState.channel, "✅ Game marked as complete! Commissioners will review.", [])
+          }
+        } catch (e) {
+        }
+      } else if (scheduledUsers.length === 0 && checkUsers.length === 0) {
         const waitPing = settings.commands.game_channel?.wait_ping || 12
         const now = new Date()
         const last = new Date(currentState.notifiedTime)

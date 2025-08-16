@@ -1,52 +1,219 @@
 import { ParameterizedContext } from "koa"
 import { CommandHandler, Command, AutocompleteHandler, Autocomplete } from "../commands_handler"
-import { respond, createMessageResponse, DiscordClient, SnallabotDiscordError } from "../discord_utils"
-import { APIApplicationCommandInteractionDataBooleanOption, APIApplicationCommandInteractionDataChannelOption, APIApplicationCommandInteractionDataRoleOption, APIApplicationCommandInteractionDataStringOption, APIApplicationCommandInteractionDataSubcommandOption, APIApplicationCommandInteractionDataUserOption, ApplicationCommandOptionType, ChannelType, RESTPostAPIApplicationCommandsJSONBody } from "discord-api-types/v10"
+import { respond, createMessageResponse, DiscordClient, SnallabotDiscordError, deferMessage } from "../discord_utils"
+import { APIApplicationCommandInteractionDataBooleanOption, APIApplicationCommandInteractionDataChannelOption, APIApplicationCommandInteractionDataRoleOption, APIApplicationCommandInteractionDataStringOption, APIApplicationCommandInteractionDataSubcommandOption, APIApplicationCommandInteractionDataUserOption, ApplicationCommandOptionType, ChannelType, RESTPostAPIApplicationCommandsJSONBody, ComponentType, ButtonStyle, InteractionResponseType } from "discord-api-types/v10"
 import { FieldValue, Firestore } from "firebase-admin/firestore"
-import LeagueSettingsDB, { ChannelId, DiscordIdType, LeagueSettings, MessageId, TeamAssignments } from "../settings_db"
+import LeagueSettingsDB, { ChannelId, DiscordIdType, LeagueSettings, MessageId, TeamAssignments, UserId, WaitlistConfiguration } from "../settings_db"
 import MaddenClient from "../../db/madden_db"
 import { Team } from "../../export/madden_league_types"
 import { teamSearchView, discordLeagueView } from "../../db/view"
 import fuzzysort from "fuzzysort"
 import MaddenDB from "../../db/madden_db"
 
+// Team logos mapping (from player.ts enum structure)
+const TEAM_LOGOS: { [key: string]: string } = {
+  "Cardinals": "<:Arizona_Cardinals:1234567890>",
+  "Falcons": "<:Falcons73:1234567890>", 
+  "Ravens": "<:Baltimore_Ravens:1234567890>",
+  "Bills": "<:Buffalo_Bills:1234567890>",
+  "Panthers": "<:Panthers79:1234567890>",
+  "Bears": "<:chi32:1234567890>",
+  "Bengals": "<:Bengals:1234567890>",
+  "Browns": "<:Browns:1234567890>",
+  "Cowboys": "<:Cowboys:1234567890>",
+  "Broncos": "<:Broncos:1234567890>",
+  "Lions": "<:Detroit_Lions63:1234567890>",
+  "Packers": "<:Packers:1234567890>",
+  "Texans": "<:Houston_Texans:1234567890>",
+  "Colts": "<:Colts:1234567890>",
+  "Jaguars": "<:Jaguars:1234567890>",
+  "Chiefs": "<:Kansas_City_Chiefs4:1234567890>",
+  "Raiders": "<:Las_Vegas_Raiders:1234567890>",
+  "Chargers": "<:Chargers:1234567890>",
+  "Rams": "<:Rams:1234567890>",
+  "Dolphins": "<:Miami_Dolphins:1234567890>",
+  "Vikings": "<:Vikings9:1234567890>",
+  "Patriots": "<:Patriots:1234567890>",
+  "Saints": "<:New_Orleans_Saints:1234567890>",
+  "Giants": "<:New_York_Giants:1234567890>",
+  "Jets": "<:jets:1234567890>",
+  "Eagles": "<:Philadelphia_Eagles:1234567890>",
+  "Steelers": "<:Steelers:1234567890>",
+  "Seahawks": "<:SEA65:1234567890>",
+  "49ers": "<:49ers:1234567890>",
+  "Buccaneers": "<:Tampa_Bay_Buccaneers:1234567890>",
+  "Titans": "<:TEN74:1234567890>",
+  "Commanders": "<:commanders:1234567890>"
+}
 
-function formatTeamMessage(teams: Team[], teamAssignments: TeamAssignments): string {
-  const header = "# Teams"
-  const teamsMessage = Object.entries(Object.groupBy(teams, team => team.divName))
-    .sort((entry1, entry2) => entry1[0].localeCompare(entry2[0]))
-    .map(entry => {
-      const divisionalTeams = entry[1] || []
-      const divisionName = entry[0]
-      const divisionMessage = divisionalTeams.sort((t1, t2) => t1.displayName.localeCompare(t2.displayName))
+function getTeamLogo(teamName: string): string {
+  // Extract team nickname from display name (e.g., "Tampa Bay Buccaneers" -> "Buccaneers")
+  const parts = teamName.split(' ')
+  const nickname = parts[parts.length - 1]
+  return TEAM_LOGOS[nickname] || "🏈"
+}
+
+function formatTeamsEmbed(teams: Team[], teamAssignments: TeamAssignments): { embeds: any[], components: any[] } {
+  const divisions = {
+    "AFC East": [] as Team[],
+    "AFC North": [] as Team[],
+    "AFC South": [] as Team[],
+    "AFC West": [] as Team[],
+    "NFC East": [] as Team[],
+    "NFC North": [] as Team[],
+    "NFC South": [] as Team[],
+    "NFC West": [] as Team[]
+  }
+
+  // Group teams by division
+  teams.forEach(team => {
+    const divName = team.divName
+    if (divisions[divName]) {
+      divisions[divName].push(team)
+    }
+  })
+
+  const embeds = []
+  const openTeams: string[] = []
+
+  // Create AFC embed
+  const afcFields = Object.entries(divisions)
+    .filter(([divName]) => divName.startsWith('AFC'))
+    .map(([divName, divTeams]) => {
+      const teamLines = divTeams
+        .sort((a, b) => a.displayName.localeCompare(b.displayName))
         .map(team => {
           const user = teamAssignments?.[`${team.teamId}`]?.discord_user?.id
           const consoleUser = team.userName
-          const assignment = [user ? [`<@${user}>`] : [], [consoleUser ? `\`${consoleUser}\`` : "`CPU`"]].flat().join(", ")
-          return `${team.displayName}: ${assignment}`
-        }).join("\n")
-      const divisionHeader = `__**${divisionName}**__`
-      return `${divisionHeader}\n${divisionMessage}`
+          const logo = getTeamLogo(team.displayName)
+          
+          if (!user) {
+            openTeams.push(team.displayName)
+          }
+          
+          const assignment = [
+            user ? `<@${user}>` : null,
+            consoleUser ? `\`${consoleUser}\`` : "`CPU`"
+          ].filter(Boolean).join(", ")
+          
+          return `${logo} ${team.displayName}: ${assignment}`
+        })
+        .join('\n')
+      
+      return {
+        name: `**${divName}**`,
+        value: teamLines || 'No teams',
+        inline: true
+      }
     })
-    .join("\n")
 
-  const openTeams = teams.filter(t => !teamAssignments?.[`${t.teamId}`]?.discord_user?.id).map(t => t.displayName).join(", ")
-  const openTeamsMessage = `OPEN TEAMS: ${openTeams}`
-  return `${header}\n${teamsMessage}\n\n${openTeamsMessage}`
+  embeds.push({
+    title: "AFC Teams",
+    color: 0x1e40af,
+    fields: afcFields,
+    timestamp: new Date().toISOString()
+  })
+
+  // Create NFC embed  
+  const nfcFields = Object.entries(divisions)
+    .filter(([divName]) => divName.startsWith('NFC'))
+    .map(([divName, divTeams]) => {
+      const teamLines = divTeams
+        .sort((a, b) => a.displayName.localeCompare(b.displayName))
+        .map(team => {
+          const user = teamAssignments?.[`${team.teamId}`]?.discord_user?.id
+          const consoleUser = team.userName
+          const logo = getTeamLogo(team.displayName)
+          
+          if (!user) {
+            openTeams.push(team.displayName)
+          }
+          
+          const assignment = [
+            user ? `<@${user}>` : null,
+            consoleUser ? `\`${consoleUser}\`` : "`CPU`"
+          ].filter(Boolean).join(", ")
+          
+          return `${logo} ${team.displayName}: ${assignment}`
+        })
+        .join('\n')
+      
+      return {
+        name: `**${divName}**`,
+        value: teamLines || 'No teams',
+        inline: true
+      }
+    })
+
+  embeds.push({
+    title: "NFC Teams", 
+    color: 0xdc2626,
+    fields: nfcFields,
+    timestamp: new Date().toISOString()
+  })
+
+  // Create open teams footer embed
+  const openTeamLogos = openTeams.map(team => getTeamLogo(team)).join(' ')
+  embeds.push({
+    title: "Open Teams",
+    description: openTeamLogos || "All teams are assigned!",
+    color: 0x16a34a,
+    footer: {
+      text: `${openTeams.length} teams available`
+    }
+  })
+
+  // Add waitlist button
+  const components = [{
+    type: ComponentType.ActionRow,
+    components: [{
+      type: ComponentType.Button,
+      style: ButtonStyle.Primary,
+      label: "Join/Leave Waitlist",
+      custom_id: "teams:waitlist:toggle"
+    }]
+  }]
+
+  return { embeds, components }
 }
+
+async function updateTeamsMessage(client: DiscordClient, channel: ChannelId, messageId: MessageId, teams: Team[], assignments: TeamAssignments) {
+  const { embeds, components } = formatTeamsEmbed(teams, assignments)
+  
+  try {
+    // For Discord API, we need to send embeds in separate messages or use a single message with multiple embeds
+    // Let's combine into one message with all embeds
+    await client.editMessage(channel, messageId, "", [])
+    // Note: Discord API doesn't support embeds in the same way as discord.js
+    // We'll need to format as rich text instead
+    
+    const afcEmbed = embeds[0]
+    const nfcEmbed = embeds[1] 
+    const openEmbed = embeds[2]
+    
+    const formattedMessage = `# ${afcEmbed.title}\n${afcEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n# ${nfcEmbed.title}\n${nfcEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n# ${openEmbed.title}\n${openEmbed.description}`
+    
+    await client.editMessage(channel, messageId, formattedMessage, [])
+  } catch (e) {
+    throw e
+  }
+}
+
 
 export async function fetchTeamsMessage(settings: LeagueSettings): Promise<string> {
   if (settings?.commands?.madden_league?.league_id) {
     const teams = await MaddenClient.getLatestTeams(settings.commands.madden_league.league_id)
-    return createTeamsMessage(settings, teams.getLatestTeams())
-  } else {
-    return "# Teams\nNo Madden League connected. Connect Snallabot to your league and reconfigure"
-  }
-}
-
-function createTeamsMessage(settings: LeagueSettings, teams: Team[]): string {
-  if (settings?.commands?.madden_league?.league_id) {
-    return formatTeamMessage(teams, settings.commands.teams?.assignments || {})
+    const { embeds } = formatTeamsEmbed(teams.getLatestTeams(), settings.commands.teams?.assignments || {})
+    // Convert embeds back to text format for compatibility
+    return embeds.map(embed => {
+      let text = `# ${embed.title}\n`
+      if (embed.fields) {
+        text += embed.fields.map((f: any) => `**${f.name}**\n${f.value}`).join('\n\n')
+      } else if (embed.description) {
+        text += embed.description
+      }
+      return text
+    }).join('\n\n')
   } else {
     return "# Teams\nNo Madden League connected. Connect Snallabot to your league and reconfigure"
   }
@@ -217,7 +384,10 @@ export default {
       }
       const message = await fetchTeamsMessage(leagueSettings)
       try {
-        await client.editMessage(leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, message, [])
+        const teams = await MaddenClient.getLatestTeams(leagueSettings.commands.madden_league.league_id)
+        await updateTeamsMessage(client, leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, teams.getLatestTeams(), {})
+        await updateTeamsMessage(client, leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, teams.getLatestTeams(), currentAssignments)
+        await updateTeamsMessage(client, leagueSettings.commands.teams.channel, leagueSettings.commands.teams.messageId, teams.getLatestTeams(), assignments)
         respond(ctx, createMessageResponse("Team Assignments Reset"))
       } catch (e) {
         if (e instanceof SnallabotDiscordError) {
@@ -335,3 +505,70 @@ export default {
     return []
   }
 } as CommandHandler & AutocompleteHandler
+
+// Add message component handler for waitlist button
+export async function handleWaitlistToggle(interaction: any, client: DiscordClient) {
+  const guildId = interaction.guild_id
+  const userId = interaction.member?.user?.id || interaction.user?.id
+  
+  if (!userId) {
+    return {
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: {
+        content: "Error: Could not identify user",
+        flags: 64
+      }
+    }
+  }
+
+  try {
+    const leagueSettings = await LeagueSettingsDB.getLeagueSettings(guildId)
+    const currentWaitlist = leagueSettings.commands.waitlist?.current_waitlist || []
+    
+    const userIndex = currentWaitlist.findIndex(u => u.id === userId)
+    let newWaitlist: UserId[]
+    let action: string
+    
+    if (userIndex === -1) {
+      // Add user to waitlist
+      newWaitlist = [...currentWaitlist, { id: userId, id_type: DiscordIdType.USER }]
+      action = "joined"
+    } else {
+      // Remove user from waitlist
+      newWaitlist = currentWaitlist.filter(u => u.id !== userId)
+      action = "left"
+    }
+    
+    const conf: WaitlistConfiguration = {
+      current_waitlist: newWaitlist
+    }
+    
+    await LeagueSettingsDB.configureWaitlist(guildId, conf)
+    
+    return {
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: {
+        content: `You have ${action} the waitlist! Current position: ${action === "joined" ? newWaitlist.length : "Not on waitlist"}`,
+        flags: 64
+      }
+    }
+  } catch (e) {
+    return {
+      type: InteractionResponseType.ChannelMessageWithSource,
+      data: {
+        content: "Error updating waitlist: " + e,
+        flags: 64
+      }
+    }
+  }
+}
+
+// Export the handler for message components
+export const messageComponentHandler = {
+  async handleInteraction(interaction: any, client: DiscordClient) {
+    if (interaction.custom_id === "teams:waitlist:toggle") {
+      return await handleWaitlistToggle(interaction, client)
+    }
+    throw new Error("Unknown teams interaction: " + interaction.custom_id)
+  }
+}
