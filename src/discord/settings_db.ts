@@ -19,6 +19,8 @@ export type LoggerConfiguration = { channel: ChannelId }
 export type WaitlistConfiguration = { current_waitlist: UserId[] }
 export type MaddenLeagueConfiguration = { league_id: string }
 export type BroadcastConfiguration = { role?: RoleId, channel: ChannelId, title_keyword: string }
+export type PostGameStatsConfiguration = { channel: ChannelId }
+export type RosterUpdatesConfiguration = { channel: ChannelId }
 export enum GameChannelState {
   CREATED = "CREATED",
   FORCE_WIN_REQUESTED = "FORCE_WIN_REQUESTED"
@@ -45,7 +47,9 @@ export type LeagueSettings = {
     broadcast?: BroadcastConfiguration,
     teams?: TeamConfiguration,
     waitlist?: WaitlistConfiguration,
-    madden_league?: MaddenLeagueConfiguration
+    madden_league?: MaddenLeagueConfiguration,
+    postgame_stats?: PostGameStatsConfiguration,
+    roster_updates?: RosterUpdatesConfiguration
   },
   guildId: string
 }
@@ -72,7 +76,9 @@ interface LeagueSettingsDB {
   updateAssignment(guildId: string, assignments: TeamAssignments): Promise<void>,
   removeAssignment(guildId: string, teamId: number | string): Promise<void>,
   removeAllAssignments(guildId: string): Promise<void>,
-  getLeagueSettingsForLeagueId(leagueId: string): Promise<LeagueSettings[]>
+  getLeagueSettingsForLeagueId(leagueId: string): Promise<LeagueSettings[]>,
+  configurePostGameStats(guildId: string, config: PostGameStatsConfiguration): Promise<void>,
+  configureRosterUpdates(guildId: string, config: RosterUpdatesConfiguration): Promise<void>
 }
 
 export function createWeekKey(season: number, week: number) {
@@ -237,6 +243,22 @@ const LeagueSettingsDB: LeagueSettingsDB = {
       .where('commands.madden_league.league_id', '==', leagueId)
       .get()
     return snapshot.docs.map(doc => ({ guildId: doc.id, ...doc.data() }) as LeagueSettings)
+  },
+
+  async configurePostGameStats(guildId: string, config: PostGameStatsConfiguration): Promise<void> {
+    await db.collection('league_settings').doc(guildId).set({
+      commands: {
+        postgame_stats: config
+      }
+    }, { merge: true })
+  },
+
+  async configureRosterUpdates(guildId: string, config: RosterUpdatesConfiguration): Promise<void> {
+    await db.collection('league_settings').doc(guildId).set({
+      commands: {
+        roster_updates: config
+      }
+    }, { merge: true })
   }
 }
 

@@ -239,7 +239,6 @@ function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
 const validReactions = ["✅", "⏰"];
 
-
 discordClient.on("messageReactionAdd", async (msg, reactor, reaction) => {
   // don't respond when bots react!
   if (reactor.id === SNALLABOT_USER || reactor.id === SNALLABOT_TEST_USER
@@ -250,7 +249,7 @@ discordClient.on("messageReactionAdd", async (msg, reactor, reaction) => {
   if (!guild) {
     return
   }
-  if (!validReactions.includes(reaction.emoji.name)) {
+  if (!["✅", "⏰", "⏭️"].includes(reaction.emoji.name)) {
     return
   }
   const reactionChannel = msg.channelID

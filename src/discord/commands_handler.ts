@@ -16,6 +16,8 @@ import gameChannelHandler from "./commands/game_channels"
 import exportHandler from "./commands/export"
 import standingsHandler from "./commands/standings"
 import playerHandler from "./commands/player"
+import postgameStatsHandler from "./commands/postgame_stats"
+import rosterUpdatesHandler from "./commands/roster_updates"
 import { APIMessageComponentInteractionData } from "discord-api-types/v9"
 
 export type Command = { command_name: string, token: string, guild_id: string, data: APIChatInputApplicationCommandInteractionData, member: APIInteractionGuildMember }
@@ -49,7 +51,9 @@ const SlashCommands: CommandsHandler = {
   "export": exportHandler,
   "test": testHandler,
   "standings": standingsHandler,
-  "player": playerHandler
+  "player": playerHandler,
+  "postgame_stats": postgameStatsHandler,
+  "roster_updates": rosterUpdatesHandler
 }
 
 const AutocompleteCommands: AutocompleteHandlers = {

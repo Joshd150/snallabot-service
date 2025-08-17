@@ -115,6 +115,24 @@ function createNotifier(client: DiscordClient, guildId: string, settings: League
       const ggUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.GG)
       const scheduledUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.SCHEDULE)
       const checkUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.CHECK)
+      const fastForwardUsers = await getReactedUsers(channelId, messageId, SnallabotReactions.FAST_FORWARD)
+      
+      // Check if fast-forward user has admin permissions
+      if (fastForwardUsers.length > 0) {
+        const adminRole = settings.commands.game_channel?.admin
+        if (adminRole) {
+          const users = await client.getUsers(guild)
+          const fastForwardUser = fastForwardUsers[0]
+          const userWithRoles = users.find(u => u.user.id === fastForwardUser.id)
+          
+          if (userWithRoles && userWithRoles.roles.includes(adminRole.id)) {
+            // Commissioner fast-complete
+            await this.deleteGameChannel(currentState, season, week, fastForwardUsers)
+            return
+          }
+        }
+      }
+      
       if (ggUsers.length > 0 || checkUsers.length > 0) {
         try {
           const exporter = await exporterForLeague(Number(leagueId), ExportContext.AUTO)

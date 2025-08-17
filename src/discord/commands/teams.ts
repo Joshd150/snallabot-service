@@ -73,13 +73,16 @@ function formatTeamsEmbed(teams: Team[], teamAssignments: TeamAssignments): { em
     }
   })
 
-  const embeds = []
+  // Create formatted text instead of embeds for better user ping support
+  let formattedMessage = "# 🏈 NFL Teams\n\n"
   const openTeams: string[] = []
 
-  // Create AFC embed
-  const afcFields = Object.entries(divisions)
+  // Create AFC section
+  formattedMessage += "## 🔴 AFC Conference\n\n"
+  Object.entries(divisions)
     .filter(([divName]) => divName.startsWith('AFC'))
-    .map(([divName, divTeams]) => {
+    .forEach(([divName, divTeams]) => {
+      formattedMessage += `**${divName}**\n`
       const teamLines = divTeams
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
         .map(team => {
@@ -98,26 +101,17 @@ function formatTeamsEmbed(teams: Team[], teamAssignments: TeamAssignments): { em
           
           return `${logo} ${team.displayName}: ${assignment}`
         })
-        .join('\n')
       
-      return {
-        name: `**${divName}**`,
-        value: teamLines || 'No teams',
-        inline: true
-      }
+      formattedMessage += teamLines.join('\n') + '\n\n'
     })
 
-  embeds.push({
-    title: "AFC Teams",
-    color: 0x1e40af,
-    fields: afcFields,
-    timestamp: new Date().toISOString()
-  })
 
-  // Create NFC embed  
-  const nfcFields = Object.entries(divisions)
+  // Create NFC section
+  formattedMessage += "## 🔵 NFC Conference\n\n"
+  Object.entries(divisions)
     .filter(([divName]) => divName.startsWith('NFC'))
-    .map(([divName, divTeams]) => {
+    .forEach(([divName, divTeams]) => {
+      formattedMessage += `**${divName}**\n`
       const teamLines = divTeams
         .sort((a, b) => a.displayName.localeCompare(b.displayName))
         .map(team => {
@@ -136,32 +130,14 @@ function formatTeamsEmbed(teams: Team[], teamAssignments: TeamAssignments): { em
           
           return `${logo} ${team.displayName}: ${assignment}`
         })
-        .join('\n')
       
-      return {
-        name: `**${divName}**`,
-        value: teamLines || 'No teams',
-        inline: true
-      }
+      formattedMessage += teamLines.join('\n') + '\n\n'
     })
 
-  embeds.push({
-    title: "NFC Teams", 
-    color: 0xdc2626,
-    fields: nfcFields,
-    timestamp: new Date().toISOString()
-  })
 
-  // Create open teams footer embed
+  // Add open teams section
   const openTeamLogos = openTeams.map(team => getTeamLogo(team)).join(' ')
-  embeds.push({
-    title: "Open Teams",
-    description: openTeamLogos || "All teams are assigned!",
-    color: 0x16a34a,
-    footer: {
-      text: `${openTeams.length} teams available`
-    }
-  })
+  formattedMessage += `## 🟢 Open Teams (${openTeams.length} available)\n${openTeamLogos || "All teams are assigned!"}`
 
   // Add waitlist button
   const components = [{
@@ -174,26 +150,14 @@ function formatTeamsEmbed(teams: Team[], teamAssignments: TeamAssignments): { em
     }]
   }]
 
-  return { embeds, components }
+  return { message: formattedMessage, components }
 }
 
 async function updateTeamsMessage(client: DiscordClient, channel: ChannelId, messageId: MessageId, teams: Team[], assignments: TeamAssignments) {
-  const { embeds, components } = formatTeamsEmbed(teams, assignments)
+  const { message, components } = formatTeamsEmbed(teams, assignments)
   
   try {
-    // For Discord API, we need to send embeds in separate messages or use a single message with multiple embeds
-    // Let's combine into one message with all embeds
-    await client.editMessage(channel, messageId, "", [])
-    // Note: Discord API doesn't support embeds in the same way as discord.js
-    // We'll need to format as rich text instead
-    
-    const afcEmbed = embeds[0]
-    const nfcEmbed = embeds[1] 
-    const openEmbed = embeds[2]
-    
-    const formattedMessage = `# ${afcEmbed.title}\n${afcEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n# ${nfcEmbed.title}\n${nfcEmbed.fields.map(f => `**${f.name}**\n${f.value}`).join('\n\n')}\n\n# ${openEmbed.title}\n${openEmbed.description}`
-    
-    await client.editMessage(channel, messageId, formattedMessage, [])
+    await client.editMessage(channel, messageId, message, [])
   } catch (e) {
     throw e
   }
@@ -203,17 +167,8 @@ async function updateTeamsMessage(client: DiscordClient, channel: ChannelId, mes
 export async function fetchTeamsMessage(settings: LeagueSettings): Promise<string> {
   if (settings?.commands?.madden_league?.league_id) {
     const teams = await MaddenClient.getLatestTeams(settings.commands.madden_league.league_id)
-    const { embeds } = formatTeamsEmbed(teams.getLatestTeams(), settings.commands.teams?.assignments || {})
-    // Convert embeds back to text format for compatibility
-    return embeds.map(embed => {
-      let text = `# ${embed.title}\n`
-      if (embed.fields) {
-        text += embed.fields.map((f: any) => `**${f.name}**\n${f.value}`).join('\n\n')
-      } else if (embed.description) {
-        text += embed.description
-      }
-      return text
-    }).join('\n\n')
+    const { message } = formatTeamsEmbed(teams.getLatestTeams(), settings.commands.teams?.assignments || {})
+    return message
   } else {
     return "# Teams\nNo Madden League connected. Connect Snallabot to your league and reconfigure"
   }

@@ -12,12 +12,54 @@ import createNotifier from "../notifier"
 import { ExportContext, Stage, exporterForLeague } from "../../dashboard/ea_client"
 import { EAAccountError } from "../../dashboard/routes"
 
+// Team logos mapping for game channels
+const TEAM_LOGOS: { [key: string]: string } = {
+  "Cardinals": "<:Arizona_Cardinals:1234567890>",
+  "Falcons": "<:Falcons73:1234567890>", 
+  "Ravens": "<:Baltimore_Ravens:1234567890>",
+  "Bills": "<:Buffalo_Bills:1234567890>",
+  "Panthers": "<:Panthers79:1234567890>",
+  "Bears": "<:chi32:1234567890>",
+  "Bengals": "<:Bengals:1234567890>",
+  "Browns": "<:Browns:1234567890>",
+  "Cowboys": "<:Cowboys:1234567890>",
+  "Broncos": "<:Broncos:1234567890>",
+  "Lions": "<:Detroit_Lions63:1234567890>",
+  "Packers": "<:Packers:1234567890>",
+  "Texans": "<:Houston_Texans:1234567890>",
+  "Colts": "<:Colts:1234567890>",
+  "Jaguars": "<:Jaguars:1234567890>",
+  "Chiefs": "<:Kansas_City_Chiefs4:1234567890>",
+  "Raiders": "<:Las_Vegas_Raiders:1234567890>",
+  "Chargers": "<:Chargers:1234567890>",
+  "Rams": "<:Rams:1234567890>",
+  "Dolphins": "<:Miami_Dolphins:1234567890>",
+  "Vikings": "<:Vikings9:1234567890>",
+  "Patriots": "<:Patriots:1234567890>",
+  "Saints": "<:New_Orleans_Saints:1234567890>",
+  "Giants": "<:New_York_Giants:1234567890>",
+  "Jets": "<:jets:1234567890>",
+  "Eagles": "<:Philadelphia_Eagles:1234567890>",
+  "Steelers": "<:Steelers:1234567890>",
+  "Seahawks": "<:SEA65:1234567890>",
+  "49ers": "<:49ers:1234567890>",
+  "Buccaneers": "<:Tampa_Bay_Buccaneers:1234567890>",
+  "Titans": "<:TEN74:1234567890>",
+  "Commanders": "<:commanders:1234567890>"
+}
+
+function getTeamLogo(teamName: string): string {
+  // Extract team nickname from display name (e.g., "Tampa Bay Buccaneers" -> "Buccaneers")
+  const parts = teamName.split(' ')
+  const nickname = parts[parts.length - 1]
+  return TEAM_LOGOS[nickname] || "🏈"
+}
 async function react(client: DiscordClient, channel: ChannelId, message: MessageId, reaction: SnallabotReactions) {
   await client.reactToMessage(`${reaction}`, message, channel)
 }
 
 function notifierMessage(users: string, waitPing: number, role: RoleId): string {
-  return `${users}\n\n**Game Controls:**\n✅ – Mark your game complete\n⏰ – Snooze automatic reminders if your game is scheduled\n\nYou will be notified again every ${waitPing} hours if not scheduled.\nNeed to sim this game? Contact <@&${role.id}> for force win requests.`
+  return `${users}\n\n**Game Controls:**\n✅ – Mark your game complete\n⏰ – Snooze automatic reminders if your game is scheduled\n⏭️ – Commissioner fast-complete (admin only)\n\nYou will be notified again every ${waitPing} hours if not scheduled.\nNeed help? Contact <@&${role.id}>`
 }
 
 function createSimMessage(sim: ConfirmedSim): string {
@@ -151,11 +193,15 @@ async function createGameChannels(client: DiscordClient, db: Firestore, token: s
       const game = gameChannel.game
       const awayTeamId = teams.getTeamForId(game.awayTeamId).teamId
       const homeTeamId = teams.getTeamForId(game.homeTeamId).teamId
-      const awayUser = formatTeamMessageName(assignments?.[awayTeamId]?.discord_user?.id, teams.getTeamForId(game.awayTeamId)?.userName)
-      const homeUser = formatTeamMessageName(assignments?.[game.homeTeamId]?.discord_user?.id, teams.getTeamForId(game.homeTeamId)?.userName)
+      const awayTeam = teams.getTeamForId(game.awayTeamId)
+      const homeTeam = teams.getTeamForId(game.homeTeamId)
+      const awayLogo = getTeamLogo(awayTeam.displayName)
+      const homeLogo = getTeamLogo(homeTeam.displayName)
+      const awayUser = formatTeamMessageName(assignments?.[awayTeamId]?.discord_user?.id, awayTeam?.userName)
+      const homeUser = formatTeamMessageName(assignments?.[homeTeamId]?.discord_user?.id, homeTeam?.userName)
       const awayTeamStanding = await MaddenClient.getStandingForTeam(leagueId, awayTeamId)
       const homeTeamStanding = await MaddenClient.getStandingForTeam(leagueId, homeTeamId)
-      const usersMessage = `${awayUser} (${formatRecord(awayTeamStanding)}) at ${homeUser} (${formatRecord(homeTeamStanding)})`
+      const usersMessage = `${awayLogo} ${awayUser} (${formatRecord(awayTeamStanding)}) 🆚 ${homeLogo} ${homeUser} (${formatRecord(homeTeamStanding)})`
       const message = await client.createMessage(channel, notifierMessage(usersMessage, waitPing, role), ["users"])
       return { message: message, ...gameChannel }
     }))
@@ -171,7 +217,8 @@ async function createGameChannels(client: DiscordClient, db: Firestore, token: s
     const finalGameChannels: GameChannel[] = await Promise.all(gameChannelsWithMessage.map(async gameChannel => {
       const { channel: channel, message: message } = gameChannel
       await react(client, channel, message, SnallabotReactions.SCHEDULE) // ⏰
-      await react(client, channel, message, "%E2%9C%85") // ✅ (green check)
+      await react(client, channel, message, SnallabotReactions.CHECK) // ✅ (green check)
+      await react(client, channel, message, SnallabotReactions.FAST_FORWARD) // ⏭️ (fast forward)
       const { game, ...rest } = gameChannel
       const createdTime = new Date().getTime()
       return { ...rest, state: GameChannelState.CREATED, notifiedTime: createdTime, channel: channel, message: message }

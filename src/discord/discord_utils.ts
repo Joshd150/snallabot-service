@@ -415,4 +415,5 @@ export const SNALLABOT_TEST_USER = "1099768386352840807"
 export enum SnallabotReactions {
   SCHEDULE = "%E2%8F%B0",
   CHECK = "%E2%9C%85",
+  FAST_FORWARD = "%E2%8F%AD%EF%B8%8F"
 }
