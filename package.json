@@ -11,7 +11,8 @@
     "pinger": "node dist/discord/pinger.js",
     "migration-20241218": "node dist/export/migration.js",
     "dev": "FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon src/index.ts",
-    "dev:with-emulator": "npx firebase --project dev emulators:start --only firestore & sleep 3 && FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon --env-file .env src/index.ts",
+    "dev:with-emulator": "concurrently \"npx firebase --project dev emulators:start --only firestore\" \"npm run dev:bot\"",
+    "dev:bot": "wait-on http://127.0.0.1:8080 && cross-env FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon --env-file .env src/index.ts",
     "ea-refresher": "dist/dashboard/ea_refresher.js"
   },
   "engines": {
