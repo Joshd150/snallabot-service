@@ -237,6 +237,7 @@ const validReactions = ["✅", "⏰"];
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * max);
+}
 const validReactions = ["✅", "⏰"];
 
 discordClient.on("messageReactionAdd", async (msg, reactor, reaction) => {
@@ -263,6 +264,24 @@ discordClient.on("messageReactionAdd", async (msg, reactor, reaction) => {
       if (channelId === reactionChannel && channelState?.message?.id === reactionMessage) {
         const notifier = createNotifier(prodClient, guild, leagueSettings)
         // wait for users to confirm/unconfirm
+        const jitter = getRandomInt(10)
+        await new Promise((r) => setTimeout(r, 5000 + jitter * 1000));
+
+        try {
+          await notifier.update(channelState, weeklyState.seasonIndex, weeklyState.week)
+        } catch (e) {
+        }
+      }
+    }))
+  }))
+})
+if (process.env.APP_ID !== SNALLABOT_TEST_USER) {
+  discordClient.connect()
+}
+
+
+export default router
+onfirm
         const jitter = getRandomInt(10)
         await new Promise((r) => setTimeout(r, 5000 + jitter * 1000));
 
