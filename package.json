@@ -10,8 +10,8 @@
     "yt-notifier": "node dist/yt-notifier/index.js",
     "pinger": "node dist/discord/pinger.js",
     "migration-20241218": "node dist/export/migration.js",
-    "dev": "npx firebase --project dev emulators:start & FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon src/index.ts && kill $!",
-    "dev:with-emulator": "npx firebase --project dev emulators:start & FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon --env-file .env src/index.ts && kill $!",
+    "dev": "FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon src/index.ts",
+    "dev:with-emulator": "npx firebase --project dev emulators:start --only firestore & sleep 3 && FIRESTORE_EMULATOR_HOST=localhost:8080 nodemon --env-file .env src/index.ts",
     "ea-refresher": "dist/dashboard/ea_refresher.js"
   },
   "engines": {
