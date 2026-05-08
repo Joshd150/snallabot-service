@@ -330,6 +330,159 @@ The league info response includes:
 - `availableWeekInfoList` — weeks with data available
 - `playerCountInfo` — roster/FA counts
 
+**Clear Cap Penalties**
+```json
+{
+  "commandName": "Mobile_UserAdmin_ClearCapPenalties",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "clearedUserId": <userId> }
+}
+```
+Zeros the salary-cap penalty on the targeted user's team. Visible in the next `Mobile_Career_GetLeagueHub` fetch via `userInfoMap[userId].salaryCapPenalty`.
+
+**Force Game Result**
+
+Three command name variants share one envelope shape; the side (home / away / clear) is encoded in `commandName`:
+
+```json
+{
+  "commandName": "Mobile_GameSchedule_ForceHomeWin",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "seasonGameKey": <key> }
+}
+```
+
+```json
+{
+  "commandName": "Mobile_GameSchedule_ForceAwayWin",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "seasonGameKey": <key> }
+}
+```
+
+```json
+{
+  "commandName": "Mobile_GameSchedule_ForceNoWin",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "seasonGameKey": <key> }
+}
+```
+
+`seasonGameKey` comes from `gameScheduleHubInfo.leagueSchedule[].seasonGameKey` in the league hub response. `ForceNoWin` clears a previously-set force. Reversible until the week advances.
+
+**Boot User from League**
+```json
+{
+  "commandName": "Mobile_UserAdmin_BootUser",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "bootedUserId": <userId> }
+}
+```
+Permanently removes the targeted user from the league at EA's side. Not reversible from the API — user must be re-invited via Companion App or console.
+
+**Add Co-Admin**
+```json
+{
+  "commandName": "Mobile_UserAdmin_AddAdmin",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "newAdminUserId": <userId> }
+}
+```
+Promotes the targeted user to `ADMINLEVEL_ADMIN`. Requires the calling persona to be `ADMINLEVEL_OWNER`. Does NOT transfer the master role — that's a separate command (`Mobile_UserAdmin_TransferAdmin`, not yet integrated).
+
+**Remove Co-Admin**
+```json
+{
+  "commandName": "Mobile_UserAdmin_RemoveAdmin",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "newAdminUserId": <userId> }
+}
+```
+Demotes a co-admin back to `ADMINLEVEL_NONE`. The `newAdminUserId` field is reused (the field name reflects "target user," not "new admin"). Does not affect the master role.
+
+**Toggle Autopilot**
+```json
+{
+  "commandName": "Mobile_UserAdmin_ToggleAutoPilot",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": {
+    "leagueId": <leagueId>,
+    "toggleAutoPilotUserId": <userId>,
+    "actionTimeout": <seconds>
+  }
+}
+```
+Toggles autopilot on/off for the targeted user's team. `actionTimeout` is the duration in seconds before EA auto-actions on the user's behalf when autopilot is on; corresponds to `userInfoMap[userId].defaultRequestActionTimeout`. Cannot enable an unlimited timeout unless `userAdminInfo.canEnableUnlimitedAutoPilot` is `true`.
+
+**Submit Response (Advance / Sim-to / Approve Action)**
+```json
+{
+  "commandName": "Mobile_Career_SubmitResponse",
+  "componentId": 2060,
+  "commandId": <TBD: see src/discord/madden_admin_writes.ts>,
+  "componentName": "careermode",
+  "requestPayload": {
+    "leagueId": <leagueId>,
+    "requestId": <requestId>,
+    "responseKey": <responseKey>
+  }
+}
+```
+
+`requestId` and `responseKey` come from `careerHubInfo.requestInfoList[]` in the league hub response. The Companion App uses this single command for several distinct flows — fetch the league hub, locate the relevant request entry, and submit one of its valid `responseKey` values:
+
+- **Week advance** — the `AdvanceStage` request entry. There is no dedicated `Mobile_*ForceAdvance*` command; this is the canonical advance implementation.
+- **Sim-to-X** — sim-to-Playoffs, sim-to-SuperBowl, sim-to-end-of-season, sim-10-years; each is a distinct `responseKey` against the same `AdvanceStage` request.
+- **Approve / reject pending user-actions** — release requests, sign requests, trade proposals (queued in `requestInfoList` after a member submits them).
+
+Once Madden runs the simulation following an advance / sim-to, the action is irreversible. `careerHubInfo.isLeagueAdvancing` is `true` until simulation completes (typically 30s–5min).
+
+---
+
+### Coverage note — write commands documented in static analysis but not yet integrated
+
+The Companion App APK (per `global-metadata.dat` / `libil2cpp.so` analysis) exposes these additional admin RPCs that have not been promoted to production wrappers:
+
+```json
+{
+  "commandName": "Mobile_UserAdmin_TransferAdmin",
+  "componentId": 2060,
+  "commandId": "<not yet probed>",
+  "componentName": "careermode",
+  "requestPayload": { "leagueId": <leagueId>, "newAdminUserId": <userId> }
+}
+```
+
+Transfers the master commish role. Distinct from `AddAdmin` / `RemoveAdmin`. **Caller loses its own master scope on success** — the new master must hand it back.
+
+```json
+{
+  "commandName": "Mobile_SetPlayerToDepthChart",
+  "componentId": 2060,
+  "commandId": "<not yet probed>",
+  "componentName": "careermode",
+  "requestPayload": "<unprobed — likely { leagueId, teamId, position, slotIndex, playerId }>"
+}
+```
+
+Modifies a team's depth chart. Read counterpart is `Mobile_GetDepthChart` (also not yet integrated). Payload shape is inferred from static analysis; one probe fire on a dev league would confirm.
+
 ---
 
 ## Step 10: Export Data Requests
